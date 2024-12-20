@@ -7,3 +7,4 @@ LINK_LEN_MIN = 6
 LINK_LEN_MAX = 127
 OK_MSG = 'Начало обработки...'
 NOT_OK_MSG = 'Что-то сломалось в модулях обработки'
+FILENAME = 'temp.json'
