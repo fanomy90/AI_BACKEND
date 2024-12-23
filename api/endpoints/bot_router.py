@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-import httpx
+from fastapi import APIRouter, BackgroundTasks
 from http import HTTPStatus
 import os
 
@@ -8,41 +7,14 @@ from api.validators import (
     check_file_size, check_got_pic, check_link_valid_alive,
     confirm_request_token
 )
-from services.constants import (
-    OK_MSG
-)
+from services.constants import OK_MSG
+from services.instruments import send_to_module
 from services.instruments import generate_req_id
 from schemas.bot_interact import InitInput, InitOutput
 from schemas.ai_interact import Send_To_AI, Got_From_AI
 
 load_dotenv()
 router = APIRouter()
-
-
-async def send_to_ai_module(req_data: Send_To_AI):
-    """
-    Асинхронная функция для отправки данных в следующий модуль.
-    """
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                os.getenv('STORAGE_MODULE_LINK'),
-                json=req_data.dict()
-            )
-            if response.status_code == HTTPStatus.OK:
-                # Валидация и обработка ответа
-                return Got_From_AI(**response.json())
-            else:
-                # Обработка ошибок от следующего модуля
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Ошибка от следующего модуля: {response.text}"
-                )
-        except httpx.RequestError as exc:
-            raise HTTPException(
-                status_code=HTTPStatus.BAD_GATEWAY,
-                detail=f"Ошибка подключения к модулю хранения: {exc}"
-            )
 
 
 @router.post(
@@ -70,7 +42,8 @@ async def create_new_iteration(
     req_data = Send_To_AI(req_id=req_id, link=input.link)
 
     # Добавление задачи в фоновый процесс
-    background_tasks.add_task(send_to_ai_module, req_data)
+    background_tasks.add_task(send_to_module(req_data, Got_From_AI,
+                                             os.getenv('STORAGE_MODULE_LINK')))
 
     # Возвращаем сообщение об успешной обработке первичного запроса
     return InitOutput(
